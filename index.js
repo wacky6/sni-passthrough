@@ -36,7 +36,7 @@ function createLookupFunction(opts) {
         for (let hostname in opts.sni)
             lookup[hostname] = parseAddressPort(opts.sni[hostname])
 
-        return (hostname) => lookup[hostname || '*']
+        return (hostname) => lookup[hostname || '*'] || lookup['*']
     }
 
     throw new Error('opts.sni must be object or function')
