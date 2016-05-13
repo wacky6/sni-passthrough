@@ -2,26 +2,40 @@
 
 const net      = require('net')
     , sniParse = require('./lib/sni-parse')
-    , floor    = Math.floor
     , isFunction = require('util').isFunction
     , isObject   = require('util').isObject
+    , isNull     = require('util').isNull
+    , isString   = require('util').isString
 
 
 
-function parseAddressPort(str) {
-    let pos = str.search(/:(\d+)$/)
+function parseDestination(decl) {
+    if ( isString(decl) ) {
+        let pos = decl.search(/:(\d+)$/)
 
-    let host    = str.substring(0, pos)
-      , portStr = str.substring(pos+1)
-      , port    = parseInt( portStr )
+        let hostStr = decl.substring(0, pos)
+          , portStr = decl.substring(pos+1)
+          , family  = hostStr.match(/^\[[^]]\]$/) ? 6 : 4
+          , host    = family === 6 ? hostStr.slice(1, -1) : hostStr
+          , port    = parseInt( portStr )
 
-    if ( ''+port!==portStr || port>65535 || port<1 )
-        throw new Error(`Invalid Port: ${portStr}`)
+        if ( ''+port!==portStr || port>65535 || port<1 )
+            throw new Error(`Invalid Port: ${portStr}`)
 
-    return {
-        host: host,
-        port: port
+        return {
+            family: family,
+            host:   host,
+            port:   port
+        }
     }
+
+    if ( isObject(decl) )
+        return decl
+
+    if ( isNull(decl) )
+        return null
+
+    throw new Error(`Invalid destination: ${decl}`)
 }
 
 
@@ -34,9 +48,14 @@ function createLookupFunction(opts) {
         let lookup = {}
 
         for (let hostname in opts.sni)
-            lookup[hostname] = parseAddressPort(opts.sni[hostname])
+            lookup[hostname] = parseDestination(opts.sni[hostname])
 
-        return (hostname) => lookup[hostname || '*'] || lookup['*']
+        return (hostname) => {
+            if (hostname in lookup)
+                return lookup[hostname]
+            else
+                return lookup['*']
+        }
     }
 
     throw new Error('opts.sni must be object or function')
@@ -62,13 +81,12 @@ function createServer(opts) {
         .once('data', (buf)=>{
             let hostname = sniParse(buf)
             let dest = lookupFunc(hostname)
-            if (dest === undefined) {
+            if ( !dest ) {
                 conn.destroy()
             }else{
-                server.emit('forward', hostname, dest)
+                server.emit('forward', hostname, {host: dest.host, port: dest.port})
                 let socket = net.connect(
-                    dest.port,
-                    dest.host,
+                    dest,
                     ()=>{
                         socket.write(buf)
                         socket.pipe(conn)

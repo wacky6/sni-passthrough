@@ -24,6 +24,7 @@ Either an object or a function
 **The object**: hostname => destination mapping  
 destination is a `"host:port"` string, port must **NOT** be omitted.  
 Wildcard and RegExp are not supported.  
+You can use destination `null` to blacklist a domain name.  
 You can use hostname `'*'` to designate a fallback.
 
 **The function**: `(hostname) => ({host, port}) || undefined`  
