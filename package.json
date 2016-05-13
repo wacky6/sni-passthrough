@@ -1,6 +1,6 @@
 {
   "name": "sni-passthrough",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Forward TLS connections based on SNI extension",
   "main": "index.js",
   "scripts": {

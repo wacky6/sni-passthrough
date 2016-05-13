@@ -70,12 +70,14 @@ function createServer(opts) {
                     dest.port,
                     dest.host,
                     ()=>{
-                        socket.on('error', (err)=>conn.destroy() )
                         socket.write(buf)
                         socket.pipe(conn)
                         conn.pipe(socket)
                     }
                 )
+                .on('error', (err)=>{
+                    conn.destroy()
+                })
             }
         } )
     } )
