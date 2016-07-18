@@ -1,46 +1,23 @@
 'use strict'
 
-const net      = require('net')
-    , sniParse = require('./lib/sni-parse')
-    , isFunction = require('util').isFunction
-    , isObject   = require('util').isObject
-    , isNull     = require('util').isNull
-    , isString   = require('util').isString
+const parseSNI = require('./lib/parse-sni')
+const parseHost = require('./lib/parse-host')
+const isHandshakeRecord = require('./lib/is-handshake-record')
+const {isFunction, isObject} = require('./lib/types')
+const {Normal, Backend, Drop} = require('./lib/forward')
+const {createServer} = require('net')
 
-
-
-function parseDestination(decl) {
-    if ( isString(decl) ) {
-        let pos = decl.search(/:(\d+)$/)
-
-        let hostStr = decl.substring(0, pos)
-          , portStr = decl.substring(pos+1)
-          , family  = hostStr.match(/^\[[^]]\]$/) ? 6 : 4
-          , host    = family === 6 ? hostStr.slice(1, -1) : hostStr
-          , port    = parseInt( portStr )
-
-        if ( ''+port!==portStr || port>65535 || port<1 )
-            throw new Error(`Invalid Port: ${portStr}`)
-
-        return {
-            family: family,
-            host:   host,
-            port:   port
-        }
-    }
-
-    if ( isObject(decl) )
-        return decl
-
-    if ( isNull(decl) )
-        return null
-
-    throw new Error(`Invalid destination: ${decl}`)
+function createForward(destDecl) {
+    if (destDecl === null)
+        return Drop()
+    if (destDecl.startsWith('>'))
+        return Backend( parseHost(destDecl.slice(1).trim()) )
+    else
+        return Normal( parseHost(destDecl) )
 }
 
 
-
-function createLookupFunction(opts) {
+function createLookup(opts) {
     if ( isFunction(opts.sni) )
         return opts.sni
 
@@ -48,19 +25,17 @@ function createLookupFunction(opts) {
         let lookup = {}
 
         for (let hostname in opts.sni)
-            lookup[hostname] = parseDestination(opts.sni[hostname])
+            lookup[hostname] = createForward(opts.sni[hostname])
 
-        return (hostname) => {
-            if (hostname in lookup)
-                return lookup[hostname]
-            else
-                return lookup['*']
-        }
+        // default: Drop for catch-all address
+        if ( !lookup['*'] )
+            lookup['*'] = createForward(null)
+
+        return (hostname) => (lookup[hostname] || lookup['*'])
     }
 
     throw new Error('opts.sni must be object or function')
 }
-
 
 
 /* createServer({
@@ -72,37 +47,28 @@ function createLookupFunction(opts) {
  *     // options accepted by net.createServer
  * }) => net.Server
  */
-function createServer(opts) {
-    const lookupFunc = createLookupFunction(opts)
+function createSNIPassthroughServer(opts) {
+    const getForwardFunc = createLookup(opts)
 
-    let server = net.createServer( (conn)=>{
+    return createServer( (conn)=>{
         conn
         .on('error', (err)=>undefined )
         .once('data', (buf)=>{
-            let hostname = sniParse(buf)
-            let dest = lookupFunc(hostname)
-            if ( !dest ) {
-                conn.destroy()
-            }else{
-                server.emit('forward', hostname, {host: dest.host, port: dest.port})
-                let socket = net.connect(
-                    dest,
-                    ()=>{
-                        socket.write(buf)
-                        socket.pipe(conn)
-                        conn.pipe(socket)
-                    }
-                )
-                .on('error', (err)=>{
-                    conn.destroy()
-                })
-            }
+            conn.pause()
+            conn.unshift(buf)
+
+            if ( !isHandshakeRecord(buf) )
+                return conn.destroy()
+
+            let hostname = parseSNI(buf)
+            let forward  = getForwardFunc(hostname)
+
+            forward(conn)
         } )
     } )
-
-    return server
 }
 
+
 module.exports = {
-    createServer: createServer
+    createServer: createSNIPassthroughServer
 }

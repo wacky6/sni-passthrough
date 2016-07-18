@@ -4,7 +4,7 @@
   "description": "Forward TLS connections based on SNI extension",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/wacky6/sni-passthrough/issues"
   },
-  "homepage": "https://github.com/wacky6/sni-passthrough#readme"
+  "homepage": "https://github.com/wacky6/sni-passthrough#readme",
+  "devDependencies": {
+    "sni-passthrough-backend": "github:wacky6/sni-passthrough-backend"
+  }
 }
