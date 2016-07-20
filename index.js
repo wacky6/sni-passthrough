@@ -2,7 +2,7 @@
 
 const parseSNI = require('./lib/parse-sni')
 const parseHost = require('./lib/parse-host')
-const isHandshakeRecord = require('./lib/is-handshake-record')
+const isClientHello = require('./lib/is-client-hello')
 const {isFunction, isObject} = require('./lib/types')
 const {Normal, Backend, Drop} = require('./lib/forward')
 const {createServer} = require('net')
@@ -57,7 +57,7 @@ function createSNIPassthroughServer(opts) {
             conn.pause()
             conn.unshift(buf)
 
-            if ( !isHandshakeRecord(buf) )
+            if ( !isClientHello(buf) )
                 return conn.destroy()
 
             let hostname = parseSNI(buf)

@@ -2,6 +2,7 @@
 
 const tls = require('tls')
 const net = require('net')
+const http = require('http')
 const Frontend = require('../')
 const {readFileSync: read} = require('fs')
 const {strictEqual, ok} = require('assert')
@@ -38,6 +39,14 @@ describe('normal forward', function(){
             }
         })
         frontend.listen(FRONTEND_PORT, next)
+    })
+
+    it('fails for non Client-Hello', function(done){
+        http.get('http://127.0.0.1:'+FRONTEND_PORT+'/', (res)=>{})
+        .on('error', (err)=>{
+            ok(err)
+            done()
+        })
     })
 
     it('forwards to SNI address', function(done){
