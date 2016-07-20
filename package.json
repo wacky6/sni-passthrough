@@ -1,6 +1,6 @@
 {
   "name": "sni-passthrough",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Forward TLS connections based on SNI extension",
   "main": "index.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "url": "https://github.com/wacky6/sni-passthrough/issues"
   },
   "homepage": "https://github.com/wacky6/sni-passthrough#readme",
-  "devDependencies": {
-    "sni-passthrough-backend": "github:wacky6/sni-passthrough-backend"
+  "dependencies": {
+    "sni-passthrough-backend": "^0.1.0"
   }
 }
